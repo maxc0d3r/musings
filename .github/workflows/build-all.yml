@@ -12,14 +12,14 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # ==========================================
       # 1. SETUP COCOS CREATOR
       # ==========================================
       - name: Cache Cocos Creator
         id: cache-cocos
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: /Applications/CocosCreator.app
           key: cocos-creator-2.4.13-mac
@@ -59,7 +59,7 @@ jobs:
           zip -r ../../Cocos-Web-Build.zip *
 
       - name: Upload Web Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Web-Build
           path: Cocos-Web-Build.zip
@@ -87,7 +87,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
       - name: Upload Unpatched iOS Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: iOS-App-Unpatched-Buggy
           path: build/jsb-link/frameworks/runtime-src/proj.ios_mac/build/Release-iphoneos/*.app
@@ -117,7 +117,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
       - name: Upload Patched iOS Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: iOS-App-Patched-Fixed
           path: build/jsb-link/frameworks/runtime-src/proj.ios_mac/build/Release-iphoneos/*.app
@@ -126,7 +126,7 @@ jobs:
       # 5. BUILD ANDROID
       # ==========================================
       - name: Setup Java for Android
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '11'
@@ -146,7 +146,7 @@ jobs:
           ./gradlew assembleDebug
 
       - name: Upload Android Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Android-APK
           path: build/jsb-link/frameworks/runtime-src/proj.android-studio/app/build/outputs/apk/debug/*.apk
