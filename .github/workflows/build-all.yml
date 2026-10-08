@@ -41,7 +41,16 @@ jobs:
             cd build/jsb-link/frameworks/runtime-src/proj.ios_mac
             
             XCODE_PROJ=$(ls | grep .xcodeproj)
-            SCHEME_NAME=$(basename "$XCODE_PROJ" .xcodeproj)
+            
+            # Dynamically ask Xcode for the exact Scheme name (preferring the -mobile scheme)
+            SCHEME_NAME=$(xcodebuild -list -project "$XCODE_PROJ" | sed -n '/Schemes:/,$p' | grep -v 'Schemes:' | grep '\-mobile' | awk 'NF' | head -n 1 | xargs)
+            
+            # Fallback: If no -mobile scheme exists, just take the first scheme listed
+            if [ -z "$SCHEME_NAME" ]; then
+              SCHEME_NAME=$(xcodebuild -list -project "$XCODE_PROJ" | sed -n '/Schemes:/,$p' | grep -v 'Schemes:' | awk 'NF' | head -n 1 | xargs)
+            fi
+            
+            echo "Detected Scheme: $SCHEME_NAME"
             
             xcodebuild clean build \
               -project "$XCODE_PROJ" \
@@ -76,7 +85,14 @@ jobs:
             cd build/jsb-link/frameworks/runtime-src/proj.ios_mac
             
             XCODE_PROJ=$(ls | grep .xcodeproj)
-            SCHEME_NAME=$(basename "$XCODE_PROJ" .xcodeproj)
+            
+            # Dynamically ask Xcode for the exact Scheme name
+            SCHEME_NAME=$(xcodebuild -list -project "$XCODE_PROJ" | sed -n '/Schemes:/,$p' | grep -v 'Schemes:' | grep '\-mobile' | awk 'NF' | head -n 1 | xargs)
+            if [ -z "$SCHEME_NAME" ]; then
+              SCHEME_NAME=$(xcodebuild -list -project "$XCODE_PROJ" | sed -n '/Schemes:/,$p' | grep -v 'Schemes:' | awk 'NF' | head -n 1 | xargs)
+            fi
+            
+            echo "Detected Scheme: $SCHEME_NAME"
             
             # Rebuild the project now that it has been patched
             xcodebuild clean build \
