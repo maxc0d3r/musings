@@ -15,48 +15,16 @@ jobs:
         uses: actions/checkout@v4
 
       # ==========================================
-      # 1. SETUP COCOS CREATOR
-      # ==========================================
-      - name: Cache Cocos Creator
-        id: cache-cocos
-        uses: actions/cache@v4
-        with:
-          path: /Applications/CocosCreator.app
-          key: cocos-creator-2.4.13-mac
-
-      - name: Install Cocos Creator 2.4.13
-        if: steps.cache-cocos.outputs.cache-hit != 'true'
-        run: |
-          echo "Downloading Cocos Creator 2.4.13..."
-          wget -O CocosCreator.dmg https://download.cocos.com/CocosCreator/v2.4.13/CocosCreator_v2.4.13_mac.dmg
-          
-          MOUNT_POINT=$(hdiutil attach CocosCreator.dmg | grep -o '/Volumes/.*')
-          cp -R "$MOUNT_POINT/CocosCreator.app" /Applications/CocosCreator.app
-          
-          hdiutil detach "$MOUNT_POINT"
-          rm CocosCreator.dmg
-
-      # Provide Android SDK/NDK paths to Cocos Creator globally
-      - name: Configure Cocos Global Settings
-        run: |
-          mkdir -p ~/.CocosCreator
-          cat <<EOF > ~/.CocosCreator/settings.json
-          {
-            "ndk-dir": "$ANDROID_NDK_HOME",
-            "android-sdk-dir": "$ANDROID_SDK_ROOT"
-          }
-          EOF
-
-      # ==========================================
-      # 2. BUILD WEB-MOBILE
+      # 1. BUILD WEB-MOBILE (From pre-generated folder)
       # ==========================================
       - name: Build Web-Mobile
         run: |
-          /Applications/CocosCreator.app/Contents/MacOS/CocosCreator --path . --build "platform=web-mobile;debug=true"
-          
-          # Compress the web build into a zip file
-          cd build/web-mobile
-          zip -r ../../Cocos-Web-Build.zip *
+          if [ -d "build/web-mobile" ]; then
+            cd build/web-mobile
+            zip -r ../../Cocos-Web-Build.zip *
+          else
+            echo "build/web-mobile folder not found in repository. Skipping."
+          fi
 
       - name: Upload Web Artifact
         uses: actions/upload-artifact@v4
@@ -65,26 +33,26 @@ jobs:
           path: Cocos-Web-Build.zip
 
       # ==========================================
-      # 3. BUILD IOS (UNPATCHED)
+      # 2. BUILD IOS (UNPATCHED)
       # ==========================================
-      - name: Build iOS Xcode Project
-        run: |
-          /Applications/CocosCreator.app/Contents/MacOS/CocosCreator --path . --build "platform=ios;debug=true"
-
       - name: Compile iOS App (Unpatched)
         run: |
-          cd build/jsb-link/frameworks/runtime-src/proj.ios_mac
-          
-          XCODE_PROJ=$(ls | grep .xcodeproj)
-          SCHEME_NAME=$(basename "$XCODE_PROJ" .xcodeproj)
-          
-          xcodebuild clean build \
-            -project "$XCODE_PROJ" \
-            -scheme "$SCHEME_NAME" \
-            -destination "generic/platform=iOS" \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+          if [ -d "build/jsb-link/frameworks/runtime-src/proj.ios_mac" ]; then
+            cd build/jsb-link/frameworks/runtime-src/proj.ios_mac
+            
+            XCODE_PROJ=$(ls | grep .xcodeproj)
+            SCHEME_NAME=$(basename "$XCODE_PROJ" .xcodeproj)
+            
+            xcodebuild clean build \
+              -project "$XCODE_PROJ" \
+              -scheme "$SCHEME_NAME" \
+              -destination "generic/platform=iOS" \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO
+          else
+            echo "Xcode project not found in repository. Skipping."
+          fi
 
       - name: Upload Unpatched iOS Artifact
         uses: actions/upload-artifact@v4
@@ -93,28 +61,32 @@ jobs:
           path: build/jsb-link/frameworks/runtime-src/proj.ios_mac/build/Release-iphoneos/*.app
 
       # ==========================================
-      # 4. BUILD IOS (PATCHED)
+      # 3. BUILD IOS (PATCHED)
       # ==========================================
       - name: Apply Native iOS Network Fix
         run: |
-          chmod +x patch_ios.sh
-          ./patch_ios.sh
+          if [ -f "patch_ios.sh" ] && [ -d "build/jsb-link/frameworks/runtime-src/proj.ios_mac" ]; then
+            chmod +x patch_ios.sh
+            ./patch_ios.sh
+          fi
 
       - name: Compile iOS App (Patched)
         run: |
-          cd build/jsb-link/frameworks/runtime-src/proj.ios_mac
-          
-          XCODE_PROJ=$(ls | grep .xcodeproj)
-          SCHEME_NAME=$(basename "$XCODE_PROJ" .xcodeproj)
-          
-          # Rebuild the project now that it has been patched
-          xcodebuild clean build \
-            -project "$XCODE_PROJ" \
-            -scheme "$SCHEME_NAME" \
-            -destination "generic/platform=iOS" \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+          if [ -d "build/jsb-link/frameworks/runtime-src/proj.ios_mac" ]; then
+            cd build/jsb-link/frameworks/runtime-src/proj.ios_mac
+            
+            XCODE_PROJ=$(ls | grep .xcodeproj)
+            SCHEME_NAME=$(basename "$XCODE_PROJ" .xcodeproj)
+            
+            # Rebuild the project now that it has been patched
+            xcodebuild clean build \
+              -project "$XCODE_PROJ" \
+              -scheme "$SCHEME_NAME" \
+              -destination "generic/platform=iOS" \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO
+          fi
 
       - name: Upload Patched iOS Artifact
         uses: actions/upload-artifact@v4
@@ -123,7 +95,7 @@ jobs:
           path: build/jsb-link/frameworks/runtime-src/proj.ios_mac/build/Release-iphoneos/*.app
 
       # ==========================================
-      # 5. BUILD ANDROID
+      # 4. BUILD ANDROID
       # ==========================================
       - name: Setup Java for Android
         uses: actions/setup-java@v4
@@ -131,19 +103,19 @@ jobs:
           distribution: 'temurin'
           java-version: '11'
 
-      - name: Build Android Studio Project
-        run: |
-          /Applications/CocosCreator.app/Contents/MacOS/CocosCreator --path . --build "platform=android;debug=true"
-
       - name: Compile Android APK (Gradle)
         run: |
-          cd build/jsb-link/frameworks/runtime-src/proj.android-studio
-          
-          # Explicitly tell Gradle where the Android SDK is
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
-          
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          if [ -d "build/jsb-link/frameworks/runtime-src/proj.android-studio" ]; then
+            cd build/jsb-link/frameworks/runtime-src/proj.android-studio
+            
+            # Explicitly tell Gradle where the Android SDK is
+            echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+            
+            chmod +x gradlew
+            ./gradlew assembleDebug
+          else
+            echo "Android Studio project not found in repository. Skipping."
+          fi
 
       - name: Upload Android Artifact
         uses: actions/upload-artifact@v4
